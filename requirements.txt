@@ -1,0 +1,6 @@
+pocketflow
+openai
+requests
+beautifulsoup4
+pyyaml
+python-dotenv
