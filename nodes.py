@@ -108,9 +108,9 @@ class MergeResultsNode(Node):
                 logger.warning(f"No research found for {tech}")
         
         logger.info("Merge validation complete:")
-        logger.info(f"  - Outline: {outline.get('title', 'No title')}")
-        logger.info(f"  - Research: {len(research)} technologies researched")
-        
+        logger.info(f"Merge complete - Outline: {outline.get('title', 'No title')}")
+        logger.info(f"Merge complete - Research: {len(research)} technologies researched")
+
         return data
     
     def post(self, shared, prep_res, exec_res):
