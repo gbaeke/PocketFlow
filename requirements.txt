@@ -4,3 +4,9 @@ requests
 beautifulsoup4
 pyyaml
 python-dotenv
+a2a-sdk
+grpcio
+protobuf>=5.29.0,<6.0.0
+sqlalchemy
+uvicorn
+googleapis-common-protos
