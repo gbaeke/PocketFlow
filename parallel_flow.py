@@ -2,6 +2,8 @@
 Parallel flow definition for the Technology Document Generator.
 Implements Split-Merge pattern for concurrent outline and research.
 """
+import asyncio
+import logging
 from pocketflow import AsyncFlow, Flow
 from nodes import (
     PrepareDataNode, 
@@ -10,6 +12,9 @@ from nodes import (
     MergeResultsNode,
     WriteDocumentNode
 )
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 
 def create_parallel_tech_document_flow():
@@ -59,23 +64,26 @@ async def run_parallel_flow(shared):
     Args:
         shared (dict): The shared data store
     """
-    import asyncio
+    logger.info("Starting parallel flow execution")
     
     # Step 1: Run prepare node
     prepare_node = PrepareDataNode()
+    logger.debug("Executing PrepareDataNode")
     prepare_node.run(shared)
     
     # Step 2: Run outline and research in parallel
     outline_node = CreateOutlineNode(max_retries=2, wait=1)
     research_node = ResearchTechnologiesNode(max_retries=2, wait=2)
     
-    print("🔄 Starting parallel execution...")
+    logger.info("Starting parallel execution of outline and research")
     
     # Create tasks for parallel execution
     async def run_outline():
+        logger.debug("Running outline generation in parallel")
         return outline_node.run(shared)
     
     async def run_research():
+        logger.debug("Running research in parallel")
         return await research_node.run_async(shared)
     
     # Execute both in parallel
@@ -83,13 +91,22 @@ async def run_parallel_flow(shared):
     research_task = asyncio.create_task(run_research())
     
     # Wait for both to complete
-    await asyncio.gather(outline_task, research_task)
+    try:
+        await asyncio.gather(outline_task, research_task)
+        logger.info("Parallel outline and research completed successfully")
+    except Exception as e:
+        logger.error(f"Error during parallel execution: {e}")
+        raise
     
     # Step 3: Run merge and write sequentially
     merge_node = MergeResultsNode()
     write_node = WriteDocumentNode(max_retries=3, wait=1)
     
+    logger.debug("Executing MergeResultsNode")
     merge_node.run(shared)
+    
+    logger.debug("Executing WriteDocumentNode")
     write_node.run(shared)
     
+    logger.info("Parallel flow execution completed successfully")
     return shared

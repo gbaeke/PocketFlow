@@ -19,8 +19,36 @@ Requirements:
 import os
 import asyncio
 import time
+import logging
+import sys
 from dotenv import load_dotenv
 from parallel_flow import run_parallel_flow
+
+# Configure logging
+def setup_logging():
+    """Set up logging configuration for the application."""
+    # Create formatter with module name for clear identification
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Create console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    
+    # Configure root logger to handle all modules
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(console_handler)
+    
+    # Get logger for this module
+    logger = logging.getLogger(__name__)
+    
+    return logger
+
+# Initialize logger
+logger = setup_logging()
 
 
 async def main():
@@ -28,13 +56,14 @@ async def main():
     
     # Load environment variables from .env file
     load_dotenv()
+    logger.info("Environment variables loaded from .env file")
     
     # Check for required environment variables
     if not os.getenv("OPENAI_API_KEY"):
-        print("❌ Error: OPENAI_API_KEY environment variable not set")
-        print("Please set your OpenAI API key in .env file or environment variable:")
-        print("export OPENAI_API_KEY='your-api-key-here'")
+        logger.error("OPENAI_API_KEY environment variable not set")
         return
+    
+    logger.info("OpenAI API key found and configured")
     
     # Example technologies - you can modify this list
     technologies = [
@@ -43,11 +72,9 @@ async def main():
         "Redis"
     ]
     
-    print("🚀 Technology Document Generator (PARALLEL MODE)")
-    print("=" * 60)
-    print(f"Technologies to research: {', '.join(technologies)}")
-    print("🔄 Outline generation and research will run in parallel")
-    print()
+    logger.info("Technology Document Generator")
+    logger.info(f"Technologies to research: {', '.join(technologies)}")
+    logger.info("Outline generation and research will run in parallel")
     
     # Initialize shared store
     shared = {
@@ -61,7 +88,7 @@ async def main():
         # Record start time
         start_time = time.time()
         
-        print("� Starting parallel execution...")
+        logger.info("Starting parallel execution...")
         
         # Run the parallel flow
         await run_parallel_flow(shared)
@@ -70,17 +97,12 @@ async def main():
         end_time = time.time()
         execution_time = end_time - start_time
         
-        print(f"\n✅ Parallel document generation completed!")
-        print(f"⏱️  Total execution time: {execution_time:.1f} seconds")
-        print(f"📄 Final document preview:")
-        print("=" * 50)
+        logger.info("Parallel document generation completed successfully!")
+        logger.info(f"Total execution time: {execution_time:.1f} seconds")
         
         # Display first 500 characters of the document
         document = shared["final_document"]
         if document:
-            preview = document[:500] + "..." if len(document) > 500 else document
-            print(preview)
-            
             # Save to file with timestamp
             import datetime
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -89,53 +111,47 @@ async def main():
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(document)
             
-            print(f"\n💾 Full document saved to: {output_file}")
-            print(f"📊 Document stats:")
-            print(f"   - Length: {len(document)} characters")
-            print(f"   - Lines: {document.count(chr(10)) + 1}")
-            print(f"   - Technologies covered: {len(technologies)}")
-            print(f"   - Execution time: {execution_time:.1f}s")
+            logger.info(f"Full document saved to: {output_file}")
             
-            # Show research results summary
-            if shared.get("research_results"):
-                print(f"\n🔍 Research completed for:")
-                for tech in shared["research_results"].keys():
-                    print(f"   - {tech}")
         else:
-            print("❌ No document was generated")
+            logger.error("No document was generated")
             
     except Exception as e:
-        print(f"❌ Error during parallel document generation: {e}")
-        print("\nDebugging information:")
-        print(f"- Outline generated: {'✅' if shared.get('outline') else '❌'}")
-        print(f"- Research completed: {'✅' if shared.get('research_results') else '❌'}")
-        print(f"- Document written: {'✅' if shared.get('final_document') else '❌'}")
-        
-        # Show any partial results
-        if shared.get("outline"):
-            print(f"- Outline title: {shared['outline'].get('title', 'No title')}")
-        if shared.get("research_results"):
-            print(f"- Research count: {len(shared['research_results'])} technologies")
+        logger.error(f"Error during parallel document generation: {e}")
+        logger.info("Debugging information:")
+        logger.info(f"- Outline generated: {'✅' if shared.get('outline') else '❌'}")
+        logger.info(f"- Research completed: {'✅' if shared.get('research_results') else '❌'}")
+        logger.info(f"- Document written: {'✅' if shared.get('final_document') else '❌'}")
 
 
 async def interactive_main():
     """Interactive version where user can input technologies."""
-    print("🚀 Technology Document Generator (Interactive Parallel Mode)")
-    print("=" * 60)
+    logger.info("Technology Document Generator starting in Interactive Parallel Mode")
+
+    # Load environment variables from .env file
+    load_dotenv()
+    logger.info("Environment variables loaded from .env file")
+    
+    # Check for required environment variables
+    if not os.getenv("OPENAI_API_KEY"):
+        logger.error("OPENAI_API_KEY environment variable not set")
+        return
+    
+    logger.info("OpenAI API key found and configured")
     
     # Get technologies from user
-    print("Enter technologies to research (comma-separated):")
-    print("Example: FastAPI, Vue.js, Redis, Docker")
+    logger.info("Enter technologies to research (comma-separated):")
+    logger.info("Example: FastAPI, Vue.js, Redis, Docker")
     user_input = input("> ").strip()
     
     if not user_input:
-        print("No technologies provided. Using default list.")
+        logger.warning("No technologies provided. Using default list.")
         technologies = ["FastAPI", "Vue.js"]
     else:
         technologies = [tech.strip() for tech in user_input.split(",")]
     
-    print(f"\nSelected technologies: {', '.join(technologies)}")
-    print("🔄 Will run outline generation and research in parallel")
+    logger.info(f"Selected technologies: {', '.join(technologies)}")
+    logger.info("Will run outline generation and research in parallel")
     
     # Update the shared store and run
     shared = {
@@ -147,18 +163,31 @@ async def interactive_main():
     
     try:
         start_time = time.time()
+        logger.info("Starting interactive parallel flow execution...")
+        
         await run_parallel_flow(shared)
         execution_time = time.time() - start_time
         
         # Save document
         if shared.get("final_document"):
-            filename = f"interactive_parallel_{'_'.join(tech.lower().replace(' ', '_') for tech in technologies[:3])}.md"
+            tech_names = [tech.lower().replace(' ', '_') for tech in technologies[:3]]
+            filename = f"interactive_parallel_{'_'.join(tech_names)}.md"
+            
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(shared["final_document"])
-            print(f"\n💾 Document saved to: {filename}")
-            print(f"⏱️  Parallel execution time: {execution_time:.1f} seconds")
+            
+            logger.info(f"Document saved to: {filename}")
+            logger.info(f"Parallel execution time: {execution_time:.1f} seconds")
+            
+            # Log document statistics
+            doc_length = len(shared["final_document"])
+            logger.info(f"Generated document length: {doc_length} characters")
+        else:
+            logger.error("No document was generated in interactive mode")
+            
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"Error in interactive mode: {e}")
+        logger.error("Interactive execution failed")
 
 
 if __name__ == "__main__":

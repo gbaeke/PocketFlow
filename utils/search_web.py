@@ -4,6 +4,10 @@ DuckDuckGo web search utility function.
 import requests
 from bs4 import BeautifulSoup
 import time
+import logging
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 
 def search_web(query, max_results=3):
@@ -18,6 +22,9 @@ def search_web(query, max_results=3):
         str: Formatted search results
     """
     try:
+        logger.debug(f"Searching web for: {query}")
+        logger.debug(f"Max results requested: {max_results}")
+        
         # Use DuckDuckGo search
         search_url = "https://duckduckgo.com/html/"
         params = {
@@ -56,8 +63,10 @@ def search_web(query, max_results=3):
                         'url': url
                     })
             except Exception as e:
-                print(f"Error parsing result {i}: {e}")
+                logger.warning(f"Error parsing search result {i}: {e}")
                 continue
+        
+        logger.debug(f"Found {len(results)} search results")
         
         # Format results
         if not results:
@@ -74,8 +83,10 @@ def search_web(query, max_results=3):
         return formatted_results
         
     except requests.RequestException as e:
+        logger.error(f"Search network error for '{query}': {e}")
         return f"Search error for '{query}': Network request failed - {e}"
     except Exception as e:
+        logger.error(f"Search error for '{query}': {e}")
         return f"Search error for '{query}': {e}"
 
 

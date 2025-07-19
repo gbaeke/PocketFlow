@@ -2,10 +2,14 @@
 OpenAI LLM wrapper utility function.
 """
 import os
+import logging
 from openai import OpenAI
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
-def call_llm(prompt, model="gpt-4.1", max_tokens=2000):
+
+def call_llm(prompt, model="gpt-4.1-nano", max_tokens=2000):
     """
     Call OpenAI LLM with the given prompt.
     
@@ -19,14 +23,24 @@ def call_llm(prompt, model="gpt-4.1", max_tokens=2000):
     """
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=0.7
-    )
+    logger.debug(f"Calling LLM with model: {model}, max_tokens: {max_tokens}")
+    logger.debug(f"Prompt length: {len(prompt)} characters")
     
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0.7
+        )
+        
+        result = response.choices[0].message.content
+        logger.debug(f"LLM response length: {len(result)} characters")
+        return result
+        
+    except Exception as e:
+        logger.error(f"LLM call failed: {e}")
+        raise
 
 
 if __name__ == "__main__":

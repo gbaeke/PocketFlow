@@ -4,9 +4,13 @@ Node definitions for the Technology Document Generator.
 import yaml
 import asyncio
 import time
+import logging
 from pocketflow import Node, AsyncParallelBatchNode
 from utils.call_llm import call_llm
 from utils.search_web import search_technology_info
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 
 class PrepareDataNode(Node):
@@ -18,19 +22,17 @@ class PrepareDataNode(Node):
     
     def exec(self, technologies):
         """Validate and prepare technologies list."""
-        if not technologies or not isinstance(technologies, list):
-            raise ValueError("Technologies must be a non-empty list")
+        if not technologies:
+            raise ValueError("No technologies provided")
         
-        print(f"📋 Preparing to process {len(technologies)} technologies: {', '.join(technologies)}")
+        logger.info(f"Preparing to process {len(technologies)} technologies: {', '.join(technologies)}")
         return technologies
     
     def post(self, shared, prep_res, exec_res):
-        """Ensure technologies are available for parallel branches."""
+        """Store the prepared data and initiate parallel processing."""
         shared["technologies"] = exec_res
-        # Initialize status tracking for coordination
-        shared["outline_complete"] = False
-        shared["research_complete"] = False
-        print("🚀 Starting parallel outline generation and research...")
+        
+        logger.info("Starting parallel outline generation and research...")
         return "default"
 
 
@@ -39,10 +41,10 @@ class MergeResultsNode(Node):
     
     def prep(self, shared):
         """Wait until both outline and research results are available."""
-        print("⏳ Waiting for outline and research to complete...")
+        logger.info("Waiting for outline and research to complete...")
         
         # Wait for both operations to complete
-        max_wait = 300  # 5 minutes timeout
+        max_wait = 120  # 2 minutes timeout
         wait_time = 0
         check_interval = 0.5  # Check every 0.5 seconds
         
@@ -51,7 +53,7 @@ class MergeResultsNode(Node):
             research_ready = shared.get("research_results") is not None
             
             if outline_ready and research_ready:
-                print("✅ Both outline and research completed!")
+                logger.info("Both outline and research completed!")
                 return {
                     "outline": shared["outline"],
                     "research": shared["research_results"],
@@ -62,16 +64,16 @@ class MergeResultsNode(Node):
             if wait_time % 5 == 0:  # Every 5 seconds
                 status = []
                 if outline_ready:
-                    status.append("✅ Outline")
+                    status.append("Outline ready")
                 else:
-                    status.append("⏳ Outline")
-                    
+                    status.append("Waiting for Outline")
+
                 if research_ready:
-                    status.append("✅ Research")
+                    status.append("Research ready")
                 else:
-                    status.append("⏳ Research")
+                    status.append("Waiting for Research")
                     
-                print(f"   Status: {' | '.join(status)}")
+                logger.info(f"Status: {' | '.join(status)}")
             
             time.sleep(check_interval)
             wait_time += check_interval
@@ -83,6 +85,7 @@ class MergeResultsNode(Node):
         if not shared.get("research_results"):
             missing.append("research results")
             
+        logger.error(f"Timeout waiting for: {', '.join(missing)}")
         raise TimeoutError(f"Timeout waiting for: {', '.join(missing)}")
     
     def exec(self, data):
@@ -102,17 +105,17 @@ class MergeResultsNode(Node):
         # Check that we have research for each technology
         for tech in technologies:
             if tech not in research:
-                print(f"⚠️  Warning: No research found for {tech}")
+                logger.warning(f"No research found for {tech}")
         
-        print(f"✅ Merge validation complete:")
-        print(f"   - Outline: {outline.get('title', 'No title')}")
-        print(f"   - Research: {len(research)} technologies researched")
+        logger.info("Merge validation complete:")
+        logger.info(f"  - Outline: {outline.get('title', 'No title')}")
+        logger.info(f"  - Research: {len(research)} technologies researched")
         
         return data
     
     def post(self, shared, prep_res, exec_res):
         """Mark merge as complete and proceed to document writing."""
-        print("🔄 Proceeding to document generation...")
+        logger.info("Proceeding to document generation...")
         return "default"
 
 
@@ -198,7 +201,7 @@ sections:
         """Store the generated outline in shared store."""
         shared["outline"] = exec_res
         shared["outline_complete"] = True
-        print(f"✅ Outline generated: {exec_res.get('title', 'No title')}")
+        logger.info(f"Outline generated: {exec_res.get('title', 'No title')}")
         return "default"
 
 
@@ -230,7 +233,7 @@ class ResearchTechnologiesNode(AsyncParallelBatchNode):
         
         shared["research_results"] = research_results
         shared["research_complete"] = True
-        print(f"✅ Research completed for {len(research_results)} technologies")
+        logger.info(f"Research completed for {len(research_results)} technologies")
         return "default"
 
 
@@ -287,6 +290,6 @@ Start with the title as an H1 heading and structure the content according to the
     def post(self, shared, prep_res, exec_res):
         """Store the final document in shared store."""
         shared["final_document"] = exec_res
-        print(f"✅ Document generated successfully!")
-        print(f"Document length: {len(exec_res)} characters")
+        logger.info("Document generated successfully!")
+        logger.info(f"Document length: {len(exec_res)} characters")
         return "default"
