@@ -1,12 +1,13 @@
 # PocketFlow - Technology Document Generator
 
-A PocketFlow application that generates comprehensive technology documentation with parallel web research using an encapsulated workflow class.
+A PocketFlow application that generates comprehensive technology documentation using an A2A (Agent-to-Agent) framework with encapsulated workflow class.
 
 ## Features
 
+- **A2A Agent Framework**: Built on Agent-to-Agent communication protocol
 - **Encapsulated Workflow**: Clean class-based interface with the `TechnologyDocumentGenerator` class
-- **Input**: List of technologies (e.g., FastAPI, Vue.js, Redis)
-- **Parallel Execution**: Outline generation and research happen simultaneously for improved performance
+- **Input**: Natural language requests or comma-separated technologies (e.g., "FastAPI, Vue.js, Redis")
+- **Serial Processing**: Structured workflow with validation → preparation → outline → research → writing
 - **Outline Generation**: Creates structured document outline with LLM
 - **Web Research**: Async web research for each technology using DuckDuckGo
 - **Document Writing**: Comprehensive document generation based on outline and research
@@ -28,6 +29,9 @@ Required packages:
 - `beautifulsoup4` - HTML parsing for search results
 - `pyyaml` - YAML processing for structured output
 - `python-dotenv` - Environment variable management
+- `a2a` - Agent-to-Agent communication framework
+- `uvicorn` - ASGI server for A2A agent
+- `httpx` - HTTP client for A2A communication
 
 ### 2. Set OpenAI API Key
 
@@ -45,25 +49,32 @@ export OPENAI_API_KEY="your-openai-api-key-here"
 
 ### 3. Run the Application
 
+#### Option A: As A2A Agent Server (Recommended)
 ```bash
-# Default mode with encapsulated workflow
-python main.py
+# Start the A2A agent server
+python -m tech_doc_generator.a2a.server
 
-# Interactive mode - choose your own technologies
-python main.py --interactive
+# In another terminal, send requests to the agent
+python -m tech_doc_generator.a2a.client
+```
 
-# Run examples showing class usage
-python example_usage.py
+#### Option B: Direct Class Usage
+```bash
+# Run with the module entry point
+python -m tech_doc_generator
 ```
 
 ### 4. Using the Class Directly
 
 ```python
-from utils.tech_doc_generator import TechnologyDocumentGenerator
+from src.tech_doc_generator.utils.tech_doc_generator import TechnologyDocumentGenerator
 
-# Basic usage
+# Basic usage with natural language
 generator = TechnologyDocumentGenerator()
-document = generator.invoke(["FastAPI", "Vue.js", "Redis"])
+document = await generator.invoke("I want documentation for FastAPI, Vue.js, and Redis")
+
+# Usage with technology list string
+document = await generator.invoke("FastAPI,Vue.js,Redis")
 
 # Save the document
 with open("tech_doc.md", "w") as f:
@@ -75,34 +86,37 @@ with open("tech_doc.md", "w") as f:
 ### Basic Usage
 
 ```python
-from utils.tech_doc_generator import TechnologyDocumentGenerator, GeneratorConfig
+from src.tech_doc_generator.utils.tech_doc_generator import TechnologyDocumentGenerator
 
 # Create generator with default settings
 generator = TechnologyDocumentGenerator()
 
-# Generate document
-document = generator.invoke(["Technology1", "Technology2"])
+# Generate document from natural language request
+document = await generator.invoke("Create documentation for FastAPI and Redis")
+
+# Generate document from technology list
+document = await generator.invoke("FastAPI,Redis,Docker")
 ```
 
 ### Advanced Configuration
 
 ```python
-from utils.tech_doc_generator import GeneratorConfig
+from src.tech_doc_generator.utils.tech_doc_generator import GeneratorConfig
 
 # Custom configuration
 config = GeneratorConfig(
     max_retries={
+        'validate': 2,
         'prepare': 1,
         'outline': 3,
         'research': 2,
-        'merge': 1,
         'write': 4
     },
     wait_times={
+        'validate': 1,
         'prepare': 1,
         'outline': 2,
         'research': 3,
-        'merge': 1,
         'write': 2
     },
     timeout_seconds=180,
@@ -110,13 +124,13 @@ config = GeneratorConfig(
 )
 
 generator = TechnologyDocumentGenerator(config)
-document = generator.invoke(technologies)
+document = await generator.invoke("FastAPI,Vue.js,Redis")
 ```
 
 ### Error Handling
 
 ```python
-from utils.tech_doc_generator import (
+from src.tech_doc_generator.utils.tech_doc_generator import (
     TechnologyDocumentGenerator,
     TechDocGeneratorError,
     InputValidationError,
@@ -127,7 +141,7 @@ from utils.tech_doc_generator import (
 generator = TechnologyDocumentGenerator()
 
 try:
-    document = generator.invoke(["FastAPI", "Vue.js"])
+    document = await generator.invoke("FastAPI,Vue.js")
     print("✅ Success!")
 except InputValidationError as e:
     print(f"❌ Invalid input: {e}")
@@ -152,122 +166,135 @@ except TechDocGeneratorError as e:
 **Default Retry Configuration:**
 ```python
 max_retries = {
+    'validate': 2,
     'prepare': 1,
     'outline': 2,
     'research': 2,
-    'merge': 1,
     'write': 3
 }
 
 wait_times = {
+    'validate': 1,
     'prepare': 1,
     'outline': 1,
     'research': 2,
-    'merge': 1,
     'write': 1
 }
 ```
 
 ## How It Works
 
-The application follows the **PocketFlow Agentic Coding** principles with a parallel execution pattern:
+The application follows the **PocketFlow Agentic Coding** principles with a serial execution pattern:
 
-### Parallel Execution Flow
+### Serial Execution Flow
 
 ```mermaid
 flowchart TD
-    start[Start] --> prepare[Prepare Data]
-    prepare --> parallel{Split}
+    start[Start] --> validate[Validate Request]
+    validate -->|valid| prepare[Prepare Data]
+    validate -->|invalid| stop[Stop - Invalid Input]
     
-    parallel --> outline[Create Outline]
-    parallel --> research[Research Technologies]
-    
-    outline --> merge[Merge Results]
-    research --> merge
-    merge --> write[Write Document]
+    prepare --> outline[Create Outline]
+    outline --> research[Research Technologies]
+    research --> write[Write Document]
     write --> endNode[End]
     
-    subgraph research[Research Phase - Parallel]
+    subgraph research[Research Phase]
         tech1[Research Tech 1] 
         tech2[Research Tech 2]
         tech3[Research Tech N]
     end
 ```
 
-**Performance Benefits**: 
-- Outline generation and technology research run simultaneously
-- Better resource utilization and faster execution
-- Scalable to handle multiple technologies efficiently
+**Key Features**: 
+- Input validation ensures proper request format
+- Structured serial flow with clear error handling
+- Parallel research within the research node for efficiency
+- Natural language input processing for flexible user interaction
 
 ### Nodes
 
-1. **PrepareDataNode**: Initializes data and coordinates parallel execution
-2. **CreateOutlineNode**: Generates structured outline using OpenAI (runs in parallel)
-3. **ResearchTechnologiesNode**: Parallel web research using DuckDuckGo (runs in parallel)
-4. **MergeResultsNode**: Waits for both outline and research completion, then merges results
+1. **ValidateRequestNode**: Parses and validates input requests (natural language or technology lists)
+2. **PrepareDataNode**: Initializes data structures and prepares for processing
+3. **CreateOutlineNode**: Generates structured outline using OpenAI
+4. **ResearchTechnologiesNode**: Parallel web research using DuckDuckGo (AsyncParallelBatchNode)
 5. **WriteDocumentNode**: Creates final document combining outline + research
 
 ### Design Patterns Used
 
-- **Split-Merge Pattern**: Parallel execution with coordination
-- **Map Reduce**: Parallel research phase with aggregation
-- **Async**: Non-blocking research execution
+- **Serial Workflow Pattern**: Sequential execution with validation gates
+- **Batch Processing**: Parallel research within individual nodes
+- **Async Processing**: Non-blocking operations for web research
+- **A2A Agent Pattern**: Agent-to-Agent communication protocol
 
 ## File Structure
 
 ```
 PocketFlow/
-├── main.py                  # Main application entry point (uses encapsulated class)
-├── example_usage.py         # Examples showing class usage patterns
-├── nodes.py                 # Node definitions (5 nodes total)
-├── parallel_flow.py         # Legacy parallel flow implementation (deprecated)
-├── utils/
-│   ├── __init__.py
-│   ├── call_llm.py          # OpenAI LLM wrapper
-│   ├── search_web.py        # DuckDuckGo search wrapper
-│   └── tech_doc_generator.py # NEW: Encapsulated workflow class
+├── src/
+│   └── tech_doc_generator/
+│       ├── __main__.py          # Module entry point
+│       ├── agent_executor.py    # A2A agent executor implementation
+│       ├── nodes.py             # Node definitions (5 nodes total)
+│       ├── flow.py              # Serial flow implementation  
+│       ├── constants.py         # Application constants
+│       ├── exceptions.py        # Custom exception types
+│       ├── validators.py        # Input/output validation logic
+│       ├── a2a/
+│       │   ├── __init__.py
+│       │   ├── client.py        # A2A client implementation
+│       │   └── server.py        # A2A server implementation
+│       └── utils/
+│           ├── __init__.py
+│           ├── call_llm.py      # OpenAI LLM wrapper
+│           ├── search_web.py    # DuckDuckGo search wrapper
+│           └── tech_doc_generator.py # Encapsulated workflow class
 ├── docs/
-│   └── design.md            # Technical design document
-└── requirements.txt         # Dependencies
+│   └── design.md                # Technical design document
+├── scripts/
+│   └── build-and-run.sh         # Build and deployment scripts
+├── requirements.txt             # Dependencies
+├── Dockerfile                   # Container configuration
+└── IMPLEMENTATION_SUMMARY.md   # Implementation details
 ```
 
 ### Key Files
 
-- **`utils/tech_doc_generator.py`**: The main encapsulated workflow class
-- **`main.py`**: Simplified application entry point using the class
-- **`example_usage.py`**: Comprehensive examples of class usage
-- **`nodes.py`**: Individual node implementations (used internally by the class)
-### Key Files
-
-- **`utils/tech_doc_generator.py`**: The main encapsulated workflow class
-- **`main.py`**: Simplified application entry point using the class
-- **`example_usage.py`**: Comprehensive examples of class usage
-- **`nodes.py`**: Individual node implementations (used internally by the class)
+- **`src/tech_doc_generator/utils/tech_doc_generator.py`**: The main encapsulated workflow class
+- **`src/tech_doc_generator/__main__.py`**: Module entry point for direct execution
+- **`src/tech_doc_generator/agent_executor.py`**: A2A agent executor for server mode
+- **`src/tech_doc_generator/nodes.py`**: Individual node implementations (used internally by the class)
+- **`src/tech_doc_generator/flow.py`**: Serial flow definition and orchestration
+- **`src/tech_doc_generator/a2a/`**: Agent-to-Agent communication components
 
 ## Configuration
 
-### Technologies List
+### Input Formats
 
-You can modify technologies in several ways:
+The application accepts flexible input formats:
 
-1. **Edit `main.py`** for default technologies:
-```python
-technologies = [
-    "FastAPI",
-    "Vue.js", 
-    "Redis"
-]
+1. **Natural Language**: "Create documentation for FastAPI and Redis"
+2. **Comma-separated list**: "FastAPI,Vue.js,Redis"  
+3. **Technology list with descriptions**: "FastAPI web framework, Vue.js frontend, Redis database"
+
+### Running as A2A Agent
+
+1. **Start the server**:
+```bash
+python -m tech_doc_generator.a2a.server
 ```
 
-2. **Use interactive mode**:
+2. **Send requests via client**:
 ```bash
-python main.py --interactive
+python -m tech_doc_generator.a2a.client
 ```
 
 3. **Use the class directly**:
 ```python
+from src.tech_doc_generator.utils.tech_doc_generator import TechnologyDocumentGenerator
+
 generator = TechnologyDocumentGenerator()
-document = generator.invoke(["Your", "Technologies", "Here"])
+document = await generator.invoke("Your request here")
 ```
 
 ### Class Configuration
@@ -275,11 +302,11 @@ document = generator.invoke(["Your", "Technologies", "Here"])
 The `TechnologyDocumentGenerator` class accepts a `GeneratorConfig` object:
 
 ```python
-from utils.tech_doc_generator import GeneratorConfig
+from src.tech_doc_generator.utils.tech_doc_generator import GeneratorConfig
 
 config = GeneratorConfig(
-    max_retries={'outline': 3, 'research': 2, 'write': 4},
-    wait_times={'outline': 2, 'research': 3, 'write': 1},
+    max_retries={'validate': 2, 'outline': 3, 'research': 2, 'write': 4},
+    wait_times={'validate': 1, 'outline': 2, 'research': 3, 'write': 1},
     timeout_seconds=180,
     log_level="DEBUG"
 )
