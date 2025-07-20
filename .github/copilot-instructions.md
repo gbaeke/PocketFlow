@@ -3,6 +3,8 @@ layout: default
 title: "Agentic Coding"
 ---
 
+For Python: never run python without activating the venv first; source .venv/bin/activate
+
 # Agentic Coding: Humans Design, Agents code!
 
 > If you are an AI agent involved in building LLM Systems, read this guide **VERY, VERY** carefully! This is the most important chapter in the entire document. Throughout development, you should always (1) start with a small and simple solution, (2) design at a high level (`docs/design.md`) before implementation, and (3) frequently ask humans for feedback and clarification.

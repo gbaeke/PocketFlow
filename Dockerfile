@@ -1,15 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
+# Copy requirements and install
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Copy all Python files and config folders
-COPY utils/ ./utils/
-COPY *.py ./
+# Copy source code
+COPY src/ ./src/
 
+# Add src to Python path
+ENV PYTHONPATH=/app/src
 
-# Run the main.py file
-CMD ["python", "a2a_server.py"] 
+# Run the server
+CMD ["python", "-m", "tech_doc_generator.a2a.server"]

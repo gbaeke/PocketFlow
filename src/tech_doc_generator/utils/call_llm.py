@@ -1,25 +1,39 @@
 """
 OpenAI LLM wrapper utility function.
 """
-import os
 import logging
+import os
+from typing import Optional
+
 from openai import OpenAI
+
+from ..constants import DEFAULT_LLM_MODEL, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
+
+# Module exports
+__all__ = ["call_llm"]
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
 
-def call_llm(prompt, model="gpt-4.1-nano", max_tokens=2000):
+def call_llm(
+    prompt: str, 
+    model: str = DEFAULT_LLM_MODEL, 
+    max_tokens: int = DEFAULT_MAX_TOKENS
+) -> str:
     """
     Call OpenAI LLM with the given prompt.
     
     Args:
-        prompt (str): The prompt to send to the LLM
-        model (str): The model to use (default: gpt-4o)
-        max_tokens (int): Maximum tokens in response
+        prompt: The prompt to send to the LLM
+        model: The model to use (default: gpt-4.1-nano)
+        max_tokens: Maximum tokens in response
         
     Returns:
-        str: The LLM response content
+        The LLM response content
+        
+    Raises:
+        Exception: If the API call fails
     """
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     
@@ -31,7 +45,7 @@ def call_llm(prompt, model="gpt-4.1-nano", max_tokens=2000):
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
-            temperature=0.7
+            temperature=DEFAULT_TEMPERATURE
         )
         
         result = response.choices[0].message.content

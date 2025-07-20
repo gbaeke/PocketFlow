@@ -64,11 +64,21 @@ async def run_client(port: int, question: str) -> None:
 
         print("Text parts:")
         try:
-            if hasattr(response, "root") and hasattr(response.root, "result") and hasattr(response.root.result, "artifacts"):
-                print(get_message_text(response.root.result.artifacts[0]))
+            if hasattr(response, "root") and hasattr(response.root, "result") and hasattr(response.root.result, "parts"):
+                parts = response.root.result.parts
+                if parts and len(parts) > 0:
+                    first_part = parts[0]
+                    if hasattr(first_part, "root") and hasattr(first_part.root, "text"):
+                        print(first_part.root.text)
+                    else:
+                        print("First part does not contain expected text structure")
+                        print(f"First part: {first_part}")
+                else:
+                    print("No parts found in result")
             else:
-                print("Issue: Response does not contain a valid result. Full response:")
+                print("Issue: Response does not contain a valid result with parts. Full response:")
                 print(response.model_dump_json(indent=2))
+                print(response)
         except Exception as e:
             print(f"Issue reading the response: {e}")
             print("Full response:")

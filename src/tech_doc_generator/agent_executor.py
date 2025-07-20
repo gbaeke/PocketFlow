@@ -12,7 +12,7 @@ from a2a.types import (
     Part,
     TextPart,
 )
-from utils.tech_doc_generator import TechnologyDocumentGenerator, GeneratorConfig, TechDocGeneratorError
+from .utils.tech_doc_generator import TechnologyDocumentGenerator, GeneratorConfig, TechDocGeneratorError
 
 
 # Set up logging
