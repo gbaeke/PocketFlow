@@ -88,32 +88,34 @@ class TechnologyDocumentGenerator:
         self.logger.info("Technology Document Generator initialized")
         self.logger.debug(f"Configuration: {self.config}")
     
-    async def invoke(self, technologies: List[str]) -> str:
+    async def invoke(self, raw_request: str) -> str:
         """
-        Generate a comprehensive technology document.
+        Generate a comprehensive technology document from a raw user request.
         
         Args:
-            technologies: List of technology names to document
+            raw_request: Raw user input string (e.g., "React, Vue, Angular" or "Compare Python vs JavaScript")
             
         Returns:
-            Generated markdown document as string
+            Generated markdown document as string or error message if validation fails
             
         Raises:
-            InputValidationError: If input validation fails
             FlowExecutionError: If workflow execution fails
-            OutputValidationError: If output validation fails
         """
         start_time = time.time()
         
         try:
-            # Validate inputs
-            self._validate_inputs(technologies)
-            
-            # Initialize shared store
-            shared = self._create_shared_store(technologies)
+            # Initialize shared store with raw request
+            shared = self._create_shared_store_with_raw_request(raw_request)
             
             # Use PocketFlow's flow execution
             await self._execute_pocketflow(shared)
+            
+            # Check if validation failed
+            validation_result = shared.get("validation_result", {})
+            if not validation_result.get("success", False):
+                error_msg = shared.get("error_message", "Invalid request - no technologies found")
+                self.logger.warning(f"Request validation failed: {error_msg}")
+                return f"Error: {error_msg}\n\nPlease provide a request that mentions specific technologies, frameworks, or tools.\n\nExamples:\n- 'React, Vue, Angular'\n- 'Compare Python vs JavaScript'\n- 'Docker and Kubernetes overview'"
             
             # Validate and return output
             document = self._validate_outputs(shared)
@@ -124,7 +126,7 @@ class TechnologyDocumentGenerator:
             
             return document
             
-        except (InputValidationError, FlowExecutionError, OutputValidationError):
+        except FlowExecutionError:
             raise
         except Exception as e:
             self.logger.error(f"Unexpected error in document generation: {e}")
@@ -167,6 +169,25 @@ class TechnologyDocumentGenerator:
         self.logger.info("Output validation passed")
         return document
     
+    def _create_shared_store_with_raw_request(self, raw_request: str) -> Dict[str, Any]:
+        """Create and initialize the shared data store with raw request."""
+        shared = {
+            "raw_request": raw_request,
+            "validation_result": None,
+            "technologies": None,
+            "outline": None,
+            "research_results": None,
+            "final_document": None,
+            "outline_complete": False,
+            "research_complete": False,
+            "error_message": None,
+            "_start_time": time.time(),
+            "_phase_times": {}
+        }
+        
+        self.logger.debug(f"Shared store initialized with raw request: {raw_request}")
+        return shared
+
     def _create_shared_store(self, technologies: List[str]) -> Dict[str, Any]:
         """Create and initialize the shared data store."""
         shared = {

@@ -32,18 +32,8 @@ class TechnologyDocumentGeneratorExecutor(AgentExecutor):
         message_text = context.get_user_input()  # helper method to extract the user input from the context
         logger.info(f"Message text: {message_text}")
 
-        try:
-            tech_list = [x.strip() for x in message_text.split(",") if x.strip()]
-            if not tech_list:
-                raise ValueError("No valid technologies found")
-        except Exception as e:
-            error_msg = "Invalid input. Please provide a comma-separated list of technologies."
-            await event_queue.enqueue_event(new_agent_text_message(error_msg))
-            return
-        
-
-        # invoke the agent with the user input
-        result = await self.agent.invoke(tech_list)
+        # Pass the raw message directly to the agent for validation and processing
+        result = await self.agent.invoke(message_text)
 
         await event_queue.enqueue_event(new_agent_text_message(result))
         

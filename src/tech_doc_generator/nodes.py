@@ -2,6 +2,7 @@
 Node definitions for the Technology Document Generator.
 """
 import asyncio
+import json
 import logging
 import time
 from typing import Any, Dict, List
@@ -17,6 +18,7 @@ from .validators import validate_outline_structure, validate_technologies
 
 # Module exports
 __all__ = [
+    "ValidateRequestNode",
     "PrepareDataNode",
     "CreateOutlineNode", 
     "ResearchTechnologiesNode",
@@ -70,6 +72,107 @@ sections:
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
+
+
+class ValidateRequestNode(Node):
+    """Validates incoming request and extracts technologies using LLM.
+    
+    This node uses an LLM to parse and validate the raw user request,
+    extracting technology names and determining if the request is valid.
+    """
+    
+    def prep(self, shared: Dict[str, Any]) -> str:
+        """Read the raw request from shared store.
+        
+        Args:
+            shared: Shared data store containing workflow data.
+            
+        Returns:
+            Raw user request string.
+        """
+        return shared.get("raw_request", "")
+    
+    def exec(self, raw_request: str) -> Dict[str, Any]:
+        """Validate request and extract technologies using LLM with JSON mode.
+        
+        Args:
+            raw_request: Raw user input string.
+            
+        Returns:
+            Dictionary with validation results and extracted technologies.
+            
+        Raises:
+            ValueError: If LLM response cannot be parsed or is invalid.
+        """
+        if not raw_request.strip():
+            return {
+                "success": False,
+                "technologies": [],
+                "error_message": "Empty request provided"
+            }
+        
+        prompt = f"""
+Analyze this user request and extract technology names (programming languages, frameworks, tools, platforms, databases, etc.).
+
+User request: "{raw_request}"
+
+You must respond in JSON format with:
+- success: true if technologies found, false otherwise  
+- technologies: array of identified technology names (cleaned and standardized)
+- error_message: explanation if no technologies found (empty string if success is true)
+
+Examples:
+- "React, Vue, Angular" -> {{"success": true, "technologies": ["React", "Vue", "Angular"], "error_message": ""}}
+- "Compare Python vs JavaScript" -> {{"success": true, "technologies": ["Python", "JavaScript"], "error_message": ""}}
+- "Hello world" -> {{"success": false, "technologies": [], "error_message": "No technologies identified"}}
+
+Respond only with valid JSON.
+"""
+        
+        try:
+            result = call_llm(prompt, json_mode=True)
+            
+            # Validate response structure
+            if not isinstance(result, dict):
+                raise ValueError("Response must be a dictionary")
+            if "success" not in result or "technologies" not in result:
+                raise ValueError("Response must have 'success' and 'technologies' fields")
+            if not isinstance(result["success"], bool):
+                raise ValueError("'success' field must be boolean")
+            if not isinstance(result["technologies"], list):
+                raise ValueError("'technologies' field must be a list")
+            
+            # Ensure error_message field exists
+            if "error_message" not in result:
+                result["error_message"] = "" if result["success"] else "Unknown error"
+            
+            return result
+            
+        except Exception as e:
+            raise ValueError(f"Failed to validate request with LLM: {e}") from e
+    
+    def post(self, shared: Dict[str, Any], prep_res: str, exec_res: Dict[str, Any]) -> str:
+        """Store validation results and determine next action.
+        
+        Args:
+            shared: Shared data store for workflow data.
+            prep_res: Result from prep phase (raw request).
+            exec_res: Validation results from exec phase.
+            
+        Returns:
+            "valid" if technologies found, "invalid" if not.
+        """
+        shared["validation_result"] = exec_res
+        
+        if exec_res["success"]:
+            shared["technologies"] = exec_res["technologies"]
+            logger.info(f"Request validated successfully. Technologies: {', '.join(exec_res['technologies'])}")
+            return "valid"
+        else:
+            error_msg = exec_res.get("error_message", "No technologies found")
+            shared["error_message"] = error_msg
+            logger.warning(f"Request validation failed: {error_msg}")
+            return "invalid"
 
 
 class PrepareDataNode(Node):
